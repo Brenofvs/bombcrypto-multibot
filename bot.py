@@ -71,8 +71,9 @@ class Bot:
         file_names = listdir('./targets/heroes-to-send-home')
         heroes = []
         for file in file_names:
-            path = './targets/heroes-to-send-home/' + file
-            heroes.append(cv2.imread(path))
+            if file.endswith("png"):
+                path = './targets/heroes-to-send-home/' + file
+                heroes.append(cv2.imread(path))
 
         print(f">>---> {self.strings.getRegionalizedString(0)} {len(heroes)}")
         return heroes
@@ -93,7 +94,7 @@ class Bot:
                 'new_map': 0,
                 'refresh_heroes': 0,
                 'send_screenshot': t['send_screenshot'] * 60,
-                'refresh_page': t['refresh_page'] * 60,
+                'refresh_page': time.time(),
                 'maps': []
             })
 
@@ -150,7 +151,7 @@ class Bot:
         return ScreenControls.positions(self.images['send-all'], threshold=Configuration.threshold['go_to_work_btn'])
 
     def click_on_rest_all(self):
-        return ScreenControls.positions(self.images['rest-all'], threshold=Configuration.threshold['go_to_work_btn'])
+        return ScreenControls.positions(self.images['rest-all'], threshold=Configuration.threshold['rest_all_btn'])
 
     def click_on_balance(self):
         ScreenControls.clickbtn(self.images['consultar-saldo'])
@@ -297,7 +298,7 @@ class Bot:
                 print(self.strings.getRegionalizedString(12))
 
     def go_to_heroes(self):
-        if self.click_on_go_back():
+        if not self.click_on_go_back():
             self.login_attempts = 0
             self.disconnect()
 
@@ -380,7 +381,6 @@ class Bot:
 
         if ScreenControls.clickbtn(self.images['ok'], timeout=5):
             time.sleep(3)
-            pass
 
         if ScreenControls.clickbtn(self.images['connect-wallet'], timeout=12):
             logger(f'🎉 {self.strings.getRegionalizedString(24)}')
@@ -406,8 +406,6 @@ class Bot:
                     if self.click_on_treasure_hunt(timeout=6):
                         self.login_attempts = 0
                     return
-                else:
-                    pass
 
             else:
                 if ScreenControls.clickbtn(self.images['connect-metamask'], timeout=6):
@@ -422,20 +420,18 @@ class Bot:
                         if self.click_on_treasure_hunt(timeout=6):
                             self.login_attempts = 0
                         return
-                else:
-                    pass
 
     def disconnect(self):
         logger(f'{self.strings.getRegionalizedString(45)}')
         time.sleep(6)
         if ScreenControls.clickbtn(self.images['ok'], timeout=5):
             time.sleep(3)
-            pass
 
         if ScreenControls.clickbtn(self.images['connect-wallet'], timeout=12):
             logger(f'{self.strings.getRegionalizedString(46)}')
             # Login activated
             l = Configuration.c['login_with_pass']
+
             if l["activated"] == True:
                 if ScreenControls.clickbtn(self.images['type-username'], timeout=5):
                     ScreenControls.inputtype(l["accounts"][self.activeaccount]["username"])
@@ -453,8 +449,6 @@ class Bot:
                     if self.click_on_treasure_hunt(timeout=6):
                         self.login_attempts = 0
                     return
-                else:
-                    pass
 
             else:
                 if ScreenControls.clickbtn(self.images['connect-metamask'], timeout=6):
@@ -469,11 +463,8 @@ class Bot:
                         if self.click_on_treasure_hunt(timeout=6):
                             self.login_attempts = 0
                         return
-                else:
-                    pass
         else:
             logger(f'{self.strings.getRegionalizedString(47)}')
-            pass
 
     def go_balance(self, update_last_execute=False, curwind=''):
         if update_last_execute:
@@ -525,14 +516,15 @@ class Bot:
 
             return
 
-        if self.click_on_treasure_hunt(timeout = 3):
+        if self.click_on_treasure_hunt(timeout=3):
             pass
 
         myscreen = pyautogui.screenshot()
         img_dir = os.path.dirname(os.path.realpath(__file__)) + r'\targets\allscreens.png'
         myscreen.save(img_dir)
         time.sleep(3)
-        self.telegram.telsendtext(f'{self.strings.getRegionalizedString(34)} {self.get_profile_label()}', self.activeaccount)
+        self.telegram.telsendtext(f'{self.strings.getRegionalizedString(34)} {self.get_profile_label()}',
+                                  self.activeaccount)
         self.telegram.telsendphoto(img_dir, self.activeaccount)
         time.sleep(3)
 
@@ -569,15 +561,14 @@ class Bot:
                                                                                        time.localtime(int(currentWindow[
                                                                                                               'refresh_page'])))
             texto = f'''
-        window: {title}
-        login: {login}
-        heroes: {heroes}
-        balance: {balance}
-        new_map: {new_map}
-        refresh_heroes: {refresh_heroes}
-        send_screenshot: {send_screenshot}
-        refresh_page: {refresh_page}
-      '''
+            window: {title}
+            login: {login}
+            heroes: {heroes}
+            balance: {balance}
+            new_map: {new_map}
+            refresh_heroes: {refresh_heroes}
+            send_screenshot: {send_screenshot}
+            refresh_page: {refresh_page}'''
 
             self.telegram.telsendtext(texto, self.activeaccount)
 
@@ -610,6 +601,12 @@ class Bot:
 
                     print(f'\n\n>>---> {self.strings.getRegionalizedString(40)} {currentWindow["window"].title}')
 
+                    if now - currentWindow['refresh_page'] > self.add_randomness(t['refresh_page'] * 60):
+                        logger('🔃 Atualizando o jogo')
+                        currentWindow['refresh_page'] = now
+                        self.rest_all()
+                        self.refresh_page()
+
                     if self.activeaccount == self.accounts:
                         self.activeaccount = 1
                     else:
@@ -628,8 +625,9 @@ class Bot:
                         currentWindow['maps'].append(now)
 
                         if ScreenControls.clickbtn(self.images['new-map']):
-                            self.telegram.telsendtext(f'{self.strings.getRegionalizedString(41)} {self.get_profile_label()}',
-                                                      self.activeaccount)
+                            self.telegram.telsendtext(
+                                f'{self.strings.getRegionalizedString(41)} {self.get_profile_label()}',
+                                self.activeaccount)
                             loggerMapClicked()
                             time.sleep(3)
                             num_jaulas = len(ScreenControls.positions(self.images['jail'], threshold=0.8))
@@ -638,7 +636,8 @@ class Bot:
                                     f'{self.strings.getRegionalizedString(42)} {num_jaulas} {self.strings.getRegionalizedString(43)}'
                                     f' {self.get_profile_label()}', self.activeaccount)
 
-                    if now - currentWindow['refresh_heroes'] > self.add_randomness(t['check_login_and_refresh_heroes'] * 60):
+                    if now - currentWindow['refresh_heroes'] > self.add_randomness(
+                            t['check_login_and_refresh_heroes'] * 60):
                         currentWindow['refresh_heroes'] = now
                         time.sleep(4)
                         self.refresh_heroes_positions()
